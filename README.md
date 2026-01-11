@@ -211,7 +211,7 @@ When using Agentic Context mode, each response includes a "🔍 How I answered" 
 | `OPENAI_API_KEY` | Required | Your OpenAI API key |
 | `RAG_STORE_PATH` | `rag_store.json` | Path to the document store file |
 | `DIAGNOSTICS_DB_PATH` | `diagnostics/diagnostics.db` | Path to SQLite database |
-| `CHAT_MODEL` | `gpt-4o-mini` | OpenAI model for chat completions |
+| `CHAT_MODEL` | `gpt-4o` | OpenAI model for chat completions |
 | `EMBED_MODEL` | `text-embedding-3-small` | OpenAI model for embeddings |
 | `AGENT_MAX_TOOL_CALLS` | 3 | Maximum tool calls per agentic query |
 | `SQL_MAX_ROWS` | 50 | Maximum rows returned from SQL queries |
@@ -220,7 +220,7 @@ When using Agentic Context mode, each response includes a "🔍 How I answered" 
 
 **Sidebar Controls:**
 - **Top-k chunks**: Number of document chunks to retrieve (1-8, default: 4)
-- **Chat model**: OpenAI model selection (default: `gpt-4o-mini`)
+- **Chat model**: OpenAI model selection (default: `gpt-4o`)
 
 **Agentic Settings** (hardcoded, can be modified in `agentic/agentic.py`):
 - **Max tool calls**: 3 iterations

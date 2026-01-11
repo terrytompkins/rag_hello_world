@@ -31,7 +31,7 @@ with st.sidebar:
     st.divider()
     st.header("Settings")
     top_k = st.slider("Top-k chunks", 1, 8, 4)
-    model = st.text_input("Chat model", value=os.environ.get("CHAT_MODEL", "gpt-4o-mini"))
+    model = st.text_input("Chat model", value=os.environ.get("CHAT_MODEL", "gpt-4o"))
     
     st.divider()
     st.subheader("Document store")

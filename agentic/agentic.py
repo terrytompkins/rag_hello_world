@@ -41,7 +41,7 @@ def run_agentic_chat(
     Returns:
         AgenticResponse with answer, evidence, trace, and confidence
     """
-    model = config.get("model", "gpt-4o-mini")
+    model = config.get("model", "gpt-4o")
     top_k = config.get("top_k", 4)
     max_tool_calls = config.get("max_tool_calls", 3)
     sql_max_rows = config.get("sql_max_rows", 50)
@@ -60,12 +60,16 @@ def run_agentic_chat(
 The user asked: "{user_msg}"
 
 Do you need clarification to answer this question? 
-- If the question mentions a pet name (like "Daisy") and asks about test results, lab values, or visits, you can PROCEED - you can query the database.
-- If the question says "most recent", "latest", "last visit", etc., you can PROCEED - you can use SQL ORDER BY to find the most recent.
-- Only ask for clarification if the question is completely unclear or missing critical information that cannot be inferred from the database.
+- If the question mentions a pet name (like "Daisy") and asks about test results, lab values, or visits → PROCEED (you can query the database)
+- If the question mentions "most recent", "latest", "last visit", "actual values", "what are the values" → PROCEED (you can use SQL to find data)
+- If the question asks "what did the vet say" or "what are the actual values" → PROCEED (you can search transcript and/or query database)
+- If the question asks to correlate, compare, or check if results support something → PROCEED (you can use both tools)
+- Only ask for clarification if the question is completely unclear AND missing a pet name AND you cannot infer what to search for
+
+IMPORTANT: If a pet name is mentioned and the question asks for data or information, you should PROCEED. You can query the database or search transcripts to find the information.
 
 Respond with ONLY one of:
-- "NEEDS_CLARIFICATION: [your clarifying question]" (only if truly necessary)
+- "NEEDS_CLARIFICATION: [your clarifying question]" (only if truly necessary - pet name missing AND question is unclear)
 - "PROCEED: [brief reason why you can proceed]"
 """
     
@@ -102,9 +106,9 @@ You have two tools available:
 2. query_diagnostics - Query lab test results and diagnostic data
 
 Based on the question, which tool(s) should you use FIRST?
-- If question mentions "lab values / test results / abnormal / ALT / WBC / last visit results" → use SQL (query_diagnostics) first
-- If question mentions "what did the vet say / symptoms / advice / discharge instructions" → use docs (search_transcripts) first
-- If question is "what does this lab mean?" or needs both → use both
+- If question mentions "lab values / test results / abnormal / ALT / WBC / last visit results" AND asks ONLY for data → use SQL (query_diagnostics) first
+- If question mentions "what did the vet say / symptoms / advice / discharge instructions" AND asks ONLY about transcript → use docs (search_transcripts) first
+- If question asks to "correlate", "compare", "support", "do results support", "vet's assessment", or needs BOTH transcript AND lab data → use BOTH
 
 Respond with ONLY one of:
 - "SQL_ONLY"
@@ -146,16 +150,26 @@ Available tables/views:
 - pets: pet_id, name, species, breed
 - tests: test_id, visit_id, test_name, specimen_type
 
+CRITICAL SCHEMA UNDERSTANDING:
+- test_name = test panel name like 'CBC', 'Chemistry Panel', 'Urinalysis'
+- analyte_code = individual lab value code like 'BUN', 'CREA', 'WBC', 'ALT', 'HCT', 'PLT', 'NEU'
+- analyte_name = full name like 'Blood Urea Nitrogen', 'Creatinine', 'White Blood Cell Count'
+- For questions about BUN, Creatinine, WBC, ALT, etc. → filter by analyte_code, NOT test_name
+- For questions about CBC panel, Chemistry panel → filter by test_name
+- Common analyte codes: BUN, CREA (Creatinine), WBC, RBC, HCT, HGB, PLT, NEU, LYM, ALT, ALP, GLU, TP, ALB, GLOB, NA, K, CL
+
 Important:
 - For "most recent", "latest", "last visit" queries, use ORDER BY visit_datetime DESC LIMIT 1
 - Filter by pet_name using WHERE pet_name = 'Daisy' (or other pet name from the question)
-- Filter by test_name using WHERE test_name = 'CBC' (or other test name)
+- Filter by test_name using WHERE test_name = 'CBC' (for entire test panels)
+- Filter by analyte_code using WHERE analyte_code = 'BUN' (for specific lab values like BUN, CREA, WBC)
 - Use v_results view when querying test results - it has all the data you need
 - Always include LIMIT 50 (or smaller if appropriate)
 
 Examples:
 - "most recent CBC for Daisy" → SELECT * FROM v_results WHERE pet_name = 'Daisy' AND test_name = 'CBC' ORDER BY visit_datetime DESC LIMIT 50
-- "CBC results for Daisy on 2026-01-09" → SELECT * FROM v_results WHERE pet_name = 'Daisy' AND test_name = 'CBC' AND visit_datetime LIKE '2026-01-09%' LIMIT 50
+- "BUN and Creatinine for Daisy" → SELECT * FROM v_results WHERE pet_name = 'Daisy' AND analyte_code IN ('BUN', 'CREA') ORDER BY visit_datetime DESC LIMIT 50
+- "abnormal results for Daisy" → SELECT * FROM v_results WHERE pet_name = 'Daisy' AND flag IN ('H', 'L') ORDER BY visit_datetime DESC LIMIT 50
 
 Generate ONLY a valid SQL SELECT query. Do not include explanations, just the SQL query.
 """
